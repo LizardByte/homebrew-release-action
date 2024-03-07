@@ -1,0 +1,62 @@
+---
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  action:
+    environment:
+      ${{ github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.repository &&
+      'external' || 'internal' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Release
+        id: setup_release
+        uses: LizardByte/setup-release-action@v2024.202.205234
+        with:
+          fail_on_events_api_error:  # PRs will fail if this is true
+            ${{ github.event_name == 'pull_request' && 'false' || 'true' }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}  # can use GITHUB_TOKEN for read-only access
+
+      - name: Modify Homebrew Formula
+        # ensure the file is unique
+        run: |
+          echo "# Created from ${{ github.repository }}@${{ github.sha }}" >> ./tests/Formula/hello_world.rb
+
+      - name: Run Action
+        id: action
+        uses: ./
+        with:
+          git_email: ${{ secrets.GH_BOT_EMAIL }}
+          git_username: ${{ secrets.GH_BOT_NAME }}
+          local_repo_directory: ${{ github.workspace }}/tests
+          target_repo: ${{ github.repository }}
+          target_repo_branch: tests
+          token: ${{ secrets.GH_BOT_TOKEN }}
+
+      - name: Create/Update GitHub Release
+        if: ${{ steps.setup_release.outputs.publish_release == 'true' }}
+        uses: LizardByte/create-release-action@v2023.1219.224026
+        with:
+          allowUpdates: true
+          body: ''
+          discussionCategory: announcements
+          generateReleaseNotes: true
+          name: ${{ steps.setup_release.outputs.release_tag }}
+          prerelease: ${{ steps.setup_release.outputs.publish_pre_release }}
+          tag: ${{ steps.setup_release.outputs.release_tag }}
+          token: ${{ secrets.GH_BOT_TOKEN }}
