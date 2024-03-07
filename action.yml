@@ -1,0 +1,46 @@
+---
+name: "Homebrew Release"
+description: "A reusable action to publish a Homebrew formula to a tap."
+author: "LizardByte"
+inputs:
+  file_patterns:
+    description: 'The file patterns to publish.'
+    default: |-
+      ^Formula/*.rb$
+    required: false
+  git_email:
+    description: 'The email to use for the commit.'
+    required: true
+  git_username:
+    description: 'The username to use for the commit.'
+    required: true
+  skip_delete:
+    description: 'Skip deleting formulas in the target repo, that do not exist in the source repo.'
+    default: 'false'
+    required: false
+  src_root:
+    description: 'Prepend this to the file patterns.'
+    default: '/'
+    required: false
+  target_repo:
+    description: 'The target repository to publish to.'
+    default: 'LizardByte/homebrew'
+    required: false
+  token:
+    description: 'Github Token.'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Homebrew Release
+      uses: adrianjost/files-sync-action@v2.1.0
+      with:
+        COMMIT_MESSAGE: "Update ${{ github.repository }} to ${{ github.sha }}"
+        FILE_PATTERNS: ${{ inputs.file_patterns }}
+        GIT_EMAIL: ${{ inputs.git_email }}
+        GIT_USERNAME: ${{ inputs.git_username }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+        SKIP_DELETE: ${{ inputs.skip_delete }}
+        SRC_ROOT: ${{ inputs.src_root }}
+        TARGET_REPOS: ${{ inputs.target_repo }}
