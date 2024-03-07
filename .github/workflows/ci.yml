@@ -32,14 +32,20 @@ jobs:
             ${{ github.event_name == 'pull_request' && 'false' || 'true' }}
           github_token: ${{ secrets.GITHUB_TOKEN }}  # can use GITHUB_TOKEN for read-only access
 
+      - name: Modify Homebrew Formula
+        # ensure the file is unique
+        run: |
+          echo "# Created from ${{ github.repository }}@${{ github.sha }}" >> ./tests/Formula/hello_world.rb
+
       - name: Run Action
         id: action
         uses: ./
         with:
           git_email: ${{ secrets.GH_BOT_EMAIL }}
           git_username: ${{ secrets.GH_BOT_NAME }}
-          src_root: /tests/
-          target_repo: ${{ github.repository }}:tests
+          local_repo_directory: ${{ github.workspace }}/tests
+          target_repo: ${{ github.repository }}
+          target_repo_branch: tests
           token: ${{ secrets.GH_BOT_TOKEN }}
 
       - name: Create/Update GitHub Release

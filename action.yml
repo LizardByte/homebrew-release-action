@@ -3,10 +3,9 @@ name: "Homebrew Release"
 description: "A reusable action to publish a Homebrew formula to a tap."
 author: "LizardByte"
 inputs:
-  file_patterns:
-    description: 'The file patterns to publish.'
-    default: |-
-      ^Formula/*.rb$
+  local_repo_directory:
+    description: 'The location of the local directory. If the default is not used, you must pass the entire path.'
+    default: "homebrew"
     required: false
   git_email:
     description: 'The email to use for the commit.'
@@ -14,17 +13,13 @@ inputs:
   git_username:
     description: 'The username to use for the commit.'
     required: true
-  skip_delete:
-    description: 'Skip deleting formulas in the target repo, that do not exist in the source repo.'
-    default: 'false'
-    required: false
-  src_root:
-    description: 'Prepend this to the file patterns.'
-    default: '/'
-    required: false
   target_repo:
     description: 'The target repository to publish to.'
     default: 'LizardByte/homebrew'
+    required: false
+  target_repo_branch:
+    description: 'The target repository branch to publish to.'
+    default: ''
     required: false
   token:
     description: 'Github Token.'
@@ -33,14 +28,33 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Homebrew Release
-      uses: adrianjost/files-sync-action@v2.1.0
+    - name: Checkout database
+      uses: actions/checkout@v4
       with:
-        COMMIT_MESSAGE: "Update ${{ github.repository }} to ${{ github.sha }}"
-        FILE_PATTERNS: ${{ inputs.file_patterns }}
-        GIT_EMAIL: ${{ inputs.git_email }}
-        GIT_USERNAME: ${{ inputs.git_username }}
-        GITHUB_TOKEN: ${{ inputs.token }}
-        SKIP_DELETE: ${{ inputs.skip_delete }}
-        SRC_ROOT: ${{ inputs.src_root }}
-        TARGET_REPOS: ${{ inputs.target_repo }}
+        repository: ${{ inputs.target_repo }}
+        ref: ${{ inputs.target_repo_branch }}
+        path: ${{ github.action_path }}/build
+        persist-credentials: false  # otherwise, the token used is the GITHUB_TOKEN, instead of the personal token
+        fetch-depth: 0  # otherwise, will fail to push refs to dest repo
+
+    - name: Prepare Homebrew repo
+      shell: bash
+      run: |
+        if [ "${{ inputs.local_repo_directory }}" == "homebrew" ]; then
+          source_path="${{ github.workspace }}/${{ inputs.local_repo_directory }}"
+        else
+          source_path="${{ inputs.local_repo_directory }}"
+        fi
+
+        # copy local repo to target repo
+        cp -f -r ${source_path}/. ${{ github.action_path }}/build/
+
+    - name: GitHub Commit & Push
+      uses: actions-js/push@v1.4
+      with:
+        author_email: ${{ inputs.git_email }}
+        author_name: ${{ inputs.git_username }}
+        branch: ${{ inputs.target_repo_branch }}  # commit to target branch
+        directory: ${{ github.action_path }}/build  # use the build directory
+        github_token: ${{ inputs.token }}
+        message: "Update ${{ github.repository }} to ${{ github.sha }}"
