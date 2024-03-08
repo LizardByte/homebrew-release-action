@@ -3,6 +3,10 @@ name: "Homebrew Release"
 description: "A reusable action to publish a Homebrew formula to a tap."
 author: "LizardByte"
 inputs:
+  contribute_to_homebrew_core:
+    description: 'Whether to contribute to homebrew-core.'
+    default: 'false'
+    required: false
   formula_file:
     description: 'The full path to the formula file.'
     required: true
@@ -12,17 +16,25 @@ inputs:
   git_username:
     description: 'The username to use for the commit.'
     required: true
-  target_repo:
+  homebrew_core_fork_repo:
+    description: 'The forked homebrew-core repository to publish to.'
+    default: 'LizardByte/homebrew-core'
+    required: false
+  org_homebrew_repo:
     description: 'The target repository to publish to.'
     default: 'LizardByte/homebrew'
     required: false
-  target_repo_branch:
+  org_homebrew_repo_branch:
     description: 'The target repository branch to publish to.'
     default: ''
     required: false
   token:
     description: 'Github Token.'
     required: true
+  upstream_homebrew_core_repo:
+    description: 'The upstream homebrew-core repository that the fork is based on. Must be a GitHub repo.'
+    default: 'Homebrew/homebrew-core'
+    required: false
 
 runs:
   using: "composite"
@@ -76,19 +88,29 @@ runs:
         "${{ steps.venv.outputs.python-path }}" -m pip install -r requirements-action.txt
         echo "::endgroup::"
 
-    - name: Checkout homebrew repo
+    - name: Checkout org homebrew repo
       uses: actions/checkout@v4
       with:
-        repository: ${{ inputs.target_repo }}
-        ref: ${{ inputs.target_repo_branch }}
-        path: ${{ github.action_path }}/build
+        repository: ${{ inputs.org_homebrew_repo }}
+        ref: ${{ inputs.org_homebrew_repo_branch }}
+        path: ${{ github.action_path }}/org_homebrew_repo
         persist-credentials: false  # otherwise, the token used is the GITHUB_TOKEN, instead of the personal token
-        fetch-depth: 0  # otherwise, will fail to push refs to dest repo
+        fetch-depth: 1
+
+    - name: Checkout homebrew-core fork
+      if: ${{ inputs.contribute_to_homebrew_core == 'true' }}
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.homebrew_core_fork_repo }}
+        path: ${{ github.action_path }}/homebrew_core_fork_repo
+        persist-credentials: false  # otherwise, the token used is the GITHUB_TOKEN, instead of the personal token
+        fetch-depth: 1
 
     - name: Homebrew tests
       env:
-        HOMEBREW_REPO_PATH: ${{ github.action_path }}/build
         INPUT_FORMULA_FILE: ${{ inputs.formula_file }}
+        INPUT_CONTRIBUTE_TO_HOMEBREW_CORE: ${{ inputs.contribute_to_homebrew_core }}
+        INPUT_UPSTREAM_HOMEBREW_CORE_REPO: ${{ inputs.upstream_homebrew_core_repo }}
       id: homebrew-tests
       shell: bash
       working-directory: ${{ github.action_path }}
@@ -110,7 +132,50 @@ runs:
       with:
         author_email: ${{ inputs.git_email }}
         author_name: ${{ inputs.git_username }}
-        branch: ${{ inputs.target_repo_branch }}  # commit to target branch
-        directory: ${{ github.action_path }}/build  # use the build directory
+        branch: ${{ inputs.org_homebrew_repo_branch }}  # commit to target branch
+        directory: ${{ github.action_path }}/org_homebrew_repo
         github_token: ${{ inputs.token }}
         message: "Update ${{ github.repository }} to ${{ github.sha }}"
+        repository: ${{ inputs.org_homebrew_repo }}
+
+    - name: GitHub Commit & Push homebrew-core
+      if: ${{ inputs.contribute_to_homebrew_core == 'true' }}
+      uses: actions-js/push@v1.4
+      with:
+        author_email: ${{ inputs.git_email }}
+        author_name: ${{ inputs.git_username }}
+        branch: ${{ steps.homebrew-tests.outputs.homebrew_core_branch }}
+        directory: ${{ github.action_path }}/homebrew_core_fork_repo
+        force: true  # need to force since the branch is sometimes reset
+        github_token: ${{ inputs.token }}
+        message: "Update ${{ github.repository }} to ${{ github.sha }}"
+        repository: ${{ inputs.homebrew_core_fork_repo }}
+
+    - name: Create Pull Request
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      if: ${{ inputs.contribute_to_homebrew_core == 'true' }}
+      shell: bash
+      working-directory: ${{ github.action_path }}/homebrew_core_fork_repo
+      run: |
+        # Check if a pull request already exists with the same head branch
+        PR_EXISTS=$(gh pr list \
+          --head ${{ steps.homebrew-tests.outputs.homebrew_core_branch }} \
+          --repo ${{ inputs.upstream_homebrew_core_repo }})
+
+        # If the pull request does not exist, create it
+        if [[ -z "$PR_EXISTS" ]]; then
+          echo "Creating pull request"
+
+          # https://cli.github.com/manual/gh_pr_create
+          gh pr create \
+            --base master \
+            --head ${{ steps.homebrew-tests.outputs.homebrew_core_branch }} \
+            --title "Update ${{ github.repository }} to ${{ github.sha }}" \
+            --body \
+              "Created by [LizardByte/homebrew-release-action](https://github.com/LizardByte/homebrew-release-action)" \
+            --no-maintainer-edit \
+            --repo ${{ inputs.upstream_homebrew_core_repo }}
+        else
+          echo "Pull request already exists"
+        fi

@@ -12,14 +12,18 @@ The intent here is that the formulas are built in the upstream repository, inste
 
 As part of an automated release workflow, this action can be used to upload the built formulas to the tap repository.
 
+Additionally, this action can be used to contribute the formula to an upstream homebrew-core repository, by
+creating a pull request to the upstream repository.
+
 ```yaml
 steps:
   - name: Publish Homebrew Formula
     uses: LizardByte/homebrew-release-action@master
     with:
+      formula_file: "${{ github.workspace }}/hello_world.rb"
       git_email: ${{ secrets.GIT_EMAIL }}
       git_username: ${{ secrets.GIT_USERNAME }}
-      target_repo: repo_owner/repo_name
+      org_homebrew_repo: repo_owner/repo_name
       token: ${{ secrets.PAT }}
 ```
 
@@ -30,10 +34,13 @@ steps:
   - name: Publish Homebrew Formula
     uses: LizardByte/homebrew-release-action@master
     with:
-      local_repo_directory: "${{ github.workspace }}/homebrew-repo"
+      contribute_to_homebrew_core: true
+      formula_file: "${{ github.workspace }}/hello_world.rb"
       git_email: ${{ secrets.GIT_EMAIL }}
       git_username: ${{ secrets.GIT_USERNAME }}
-      target_repo: repo_owner/repo_name
-      target_repo_branch: master
+      homebrew_core_fork_repo: repo_owner/homebrew-core
+      org_homebrew_repo: repo_owner/repo_name
+      org_homebrew_repo_branch: master
       token: ${{ secrets.PAT }}
+      upstream_homebrew_core_repo: Homebrew/homebrew-core
 ```
