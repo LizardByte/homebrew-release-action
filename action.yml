@@ -3,10 +3,9 @@ name: "Homebrew Release"
 description: "A reusable action to publish a Homebrew formula to a tap."
 author: "LizardByte"
 inputs:
-  local_repo_directory:
-    description: 'The location of the local directory. If the default is not used, you must pass the entire path.'
-    default: "homebrew"
-    required: false
+  formula_file:
+    description: 'The full path to the formula file.'
+    required: true
   git_email:
     description: 'The email to use for the commit.'
     required: true
@@ -28,7 +27,56 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Checkout database
+    - name: OS check
+      id: os-check
+      shell: bash
+      run: |
+        echo "Detected OS: ${{ runner.os }}"
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          # fail if Windows
+          echo "${{ runner.os }} is not supported"
+          exit 1
+        fi
+
+    - name: Setup Python
+      id: setup-python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        update-environment: false
+
+    - name: Create venv
+      # borrowed from LizardByte/plexhints action
+      id: venv
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        echo "::group::Create venv"
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          # use cygpath to convert windows path to unix path while creating venv
+          $(cygpath.exe -u "${{ steps.setup-python.outputs.python-path }}") -m venv venv
+
+          # set python executable as step output
+          echo "python-path=$(cygpath.exe -u $(pwd)\\venv\\Scripts\\python.exe)" >> $GITHUB_OUTPUT
+        else
+          ${{ steps.setup-python.outputs.python-path }} -m venv venv
+
+          # set python executable as step output
+          echo "python-path=$(pwd)/venv/bin/python" >> $GITHUB_OUTPUT
+        fi
+        echo "::endgroup::"
+
+    - name: Install Python Requirements
+      id: install-requirements
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        echo "::group::Install Python Requirements"
+        # install requirements required for this action to complete
+        "${{ steps.venv.outputs.python-path }}" -m pip install -r requirements-action.txt
+        echo "::endgroup::"
+
+    - name: Checkout homebrew repo
       uses: actions/checkout@v4
       with:
         repository: ${{ inputs.target_repo }}
@@ -37,17 +85,25 @@ runs:
         persist-credentials: false  # otherwise, the token used is the GITHUB_TOKEN, instead of the personal token
         fetch-depth: 0  # otherwise, will fail to push refs to dest repo
 
-    - name: Prepare Homebrew repo
+    - name: Homebrew tests
+      env:
+        HOMEBREW_REPO_PATH: ${{ github.action_path }}/build
+        INPUT_FORMULA_FILE: ${{ inputs.formula_file }}
+      id: homebrew-tests
       shell: bash
+      working-directory: ${{ github.action_path }}
       run: |
-        if [ "${{ inputs.local_repo_directory }}" == "homebrew" ]; then
-          source_path="${{ github.workspace }}/${{ inputs.local_repo_directory }}"
-        else
-          source_path="${{ inputs.local_repo_directory }}"
+        echo "::group::Setup Homebrew PATH"
+        if [[ "${{ runner.os }}" == "Linux" ]]; then
+          # https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2204-Readme.md#homebrew-note
+          echo "Adding Homebrew to PATH"
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
         fi
+        echo "::endgroup::"
 
-        # copy local repo to target repo
-        cp -f -r ${source_path}/. ${{ github.action_path }}/build/
+        echo "::group::Homebrew tests"
+        "${{ steps.venv.outputs.python-path }}" -u ./action/main.py
+        echo "::endgroup::"
 
     - name: GitHub Commit & Push
       uses: actions-js/push@v1.4

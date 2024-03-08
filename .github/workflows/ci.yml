@@ -41,9 +41,9 @@ jobs:
         id: action
         uses: ./
         with:
+          formula_file: ${{ github.workspace }}/tests/Formula/hello_world.rb
           git_email: ${{ secrets.GH_BOT_EMAIL }}
           git_username: ${{ secrets.GH_BOT_NAME }}
-          local_repo_directory: ${{ github.workspace }}/tests
           target_repo: ${{ github.repository }}
           target_repo_branch: tests
           token: ${{ secrets.GH_BOT_TOKEN }}
