@@ -290,7 +290,8 @@ def test_formula(formula: str) -> bool:
         args_list=[
             'brew',
             'test',
-            os.path.join(temp_repo, formula)
+            os.path.join(temp_repo, formula),
+            '--verbose'
         ],
         capture_output=True
     )
