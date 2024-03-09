@@ -208,8 +208,10 @@ def process_input_formula(formula_file: str) -> str:
         capture_output=True
     )
 
-    org_homebrew_repo = os.path.join(os.environ['GITHUB_ACTION_PATH'], 'org_homebrew_repo')
-    homebrew_core_fork_repo = os.path.join(os.environ['GITHUB_ACTION_PATH'], 'homebrew_core_fork_repo')
+    org_homebrew_repo = os.path.join(
+        os.environ['GITHUB_WORKSPACE'], 'homebrew-release-action', 'org_homebrew_repo')
+    homebrew_core_fork_repo = os.path.join(
+        os.environ['GITHUB_WORKSPACE'], 'homebrew-release-action', 'homebrew_core_fork_repo')
     print(f'org_homebrew_repo: {org_homebrew_repo}')
     print(f'homebrew_core_fork_repo: {homebrew_core_fork_repo}')
 

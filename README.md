@@ -23,7 +23,7 @@ to point to a different repository if you are not using the official Homebrew/ho
 
 ```yaml
 steps:
-  - name: Publish Homebrew Formula
+  - name: Validate and Publish Homebrew Formula
     uses: LizardByte/homebrew-release-action@master
     with:
       formula_file: "${{ github.workspace }}/hello_world.rb"
@@ -36,7 +36,7 @@ It's possible to overwrite the defaults by providing additional inputs:
 
 ```yaml
 steps:
-  - name: Publish Homebrew Formula
+  - name: Validate and Publish Homebrew Formula
     uses: LizardByte/homebrew-release-action@master
     with:
       contribute_to_homebrew_core: true
@@ -84,7 +84,7 @@ jobs:
       run: |
         # whatever you need to do to generate the formula
 
-    - name: Publish Homebrew Formula
+    - name: Validate and Publish Homebrew Formula
       uses: LizardByte/homebrew-release-action@master
       with:
         formula_file: "${{ github.workspace }}/build/hello_world.rb"

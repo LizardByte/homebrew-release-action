@@ -100,8 +100,8 @@ def test_proces_input_formula():
     assert formula == 'hello_world'
 
     dirs = [
-        os.path.join(os.environ['GITHUB_ACTION_PATH'], 'org_homebrew_repo'),
-        os.path.join(os.environ['GITHUB_ACTION_PATH'], 'homebrew_core_fork_repo'),
+        os.path.join(os.environ['GITHUB_WORKSPACE'], 'homebrew-release-action', 'org_homebrew_repo'),
+        os.path.join(os.environ['GITHUB_WORKSPACE'], 'homebrew-release-action', 'homebrew_core_fork_repo'),
     ]
 
     for d in dirs:
