@@ -15,7 +15,12 @@ concurrency:
 
 jobs:
   action:
-    environment:
+    env:
+      environment:  # this is accessible through ${{ env.environment }}
+        ${{ github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name != github.repository &&
+        'external' || 'internal' }}
+    environment:  # this isn't accessible
       ${{ github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name != github.repository &&
       'external' || 'internal' }}
@@ -41,12 +46,15 @@ jobs:
         id: action
         uses: ./
         with:
+          contribute_to_homebrew_core: true
+          formula_file: ${{ github.workspace }}/tests/Formula/hello_world.rb
           git_email: ${{ secrets.GH_BOT_EMAIL }}
           git_username: ${{ secrets.GH_BOT_NAME }}
-          local_repo_directory: ${{ github.workspace }}/tests
-          target_repo: ${{ github.repository }}
-          target_repo_branch: tests
+          org_homebrew_repo: ${{ github.repository }}
+          org_homebrew_repo_branch: tests
+          publish: ${{ env.environment == 'internal' && 'true' || 'false' }}  # true if internal, false if external
           token: ${{ secrets.GH_BOT_TOKEN }}
+          upstream_homebrew_core_repo: LizardByte/homebrew-core  # we don't want to create a PR against upstream
 
       - name: Create/Update GitHub Release
         if: ${{ steps.setup_release.outputs.publish_release == 'true' }}
@@ -61,3 +69,51 @@ jobs:
           prerelease: ${{ steps.setup_release.outputs.publish_pre_release }}
           tag: ${{ steps.setup_release.outputs.release_tag }}
           token: ${{ secrets.GH_BOT_TOKEN }}
+
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # we need to fetch the default branch one of the tests
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade -r requirements-action.txt
+          python -m pip install --upgrade -r requirements-dev.txt
+
+      - name: Test with pytest
+        id: test
+        shell: bash
+        run: |
+          echo "::group::Setup Homebrew PATH"
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            # https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2204-Readme.md#homebrew-note
+            echo "Adding Homebrew to PATH"
+            eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          fi
+          echo "::endgroup::"
+
+          echo "::group::Run Tests"
+          python -m pytest \
+            -rxXs \
+            --tb=native \
+            --verbose \
+            --cov=action \
+            tests
+          echo "::endgroup::"
+
+      - name: Upload coverage
+        # any except canceled or skipped
+        if: >-
+          always() &&
+          (steps.test.outcome == 'success' || steps.test.outcome == 'failure')
+        uses: codecov/codecov-action@v3
