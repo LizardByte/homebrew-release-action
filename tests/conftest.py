@@ -56,7 +56,7 @@ def operating_system():
 
 @pytest.fixture(scope='function')  # todo: fix repo deletion
 def homebrew_core_fork_repo():
-    directory = os.environ['GITHUB_ACTION_PATH']
+    directory = os.path.join(os.environ['GITHUB_WORKSPACE'], 'homebrew-release-action')
     os.makedirs(directory, exist_ok=True)
 
     repo = 'homebrew_core_fork_repo'
