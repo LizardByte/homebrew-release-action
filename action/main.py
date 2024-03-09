@@ -21,6 +21,8 @@ FAILURES = []
 
 temp_repo = os.path.join('homebrew-release-action', 'homebrew-test')
 
+og_dir = os.getcwd()
+
 
 def _parse_args(args_list: list) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Homebrew formula audit, install, and test')
@@ -40,12 +42,16 @@ def _run_subprocess(
         env: Optional[Mapping] = None,
 ) -> bool:
     global ERROR
+    if cwd:
+        os.chdir(cwd)  # hack for unit testing on windows
     result = subprocess.run(
         args=args_list,
         capture_output=capture_output,
         cwd=cwd,
         env=env,
     )
+    if cwd:
+        os.chdir(og_dir)
     print('Captured stdout:\n\n')
     print(result.stdout.decode('utf-8') if result.stdout else '')
 
@@ -78,14 +84,6 @@ def set_github_action_output(output_name: str, output_value: str):
         f.write('\nEOF\n')
 
 
-def branch_exists(branch: str) -> bool:
-    try:
-        subprocess.check_output(['git', 'show-ref', '--verify', '--quiet', f'refs/heads/{branch}'])
-        return True
-    except subprocess.CalledProcessError:
-        return False
-
-
 def get_brew_repository() -> str:
     proc = subprocess.run(
         args=['brew', '--repository'],
@@ -98,24 +96,35 @@ def prepare_homebrew_core_fork(
         branch_suffix: str,
         path: str,
 ) -> None:
+    global ERROR
+
+    og_error = ERROR
+
     print('Preparing Homebrew/homebrew-core fork')
 
     # checkout a new branch
     branch_name = f'homebrew-release-action/{branch_suffix}'
-    if not branch_exists(branch_name):  # create a new branch if it does not exist
-        print(f'Creating new branch {branch_name}')
-        _run_subprocess(
-            args_list=['git', 'checkout', '-b', branch_name],
-            capture_output=True,
-            cwd=path,
-        )
-    else:  # checkout the existing branch
-        print(f'Checking out existing branch {branch_name}')
-        _run_subprocess(
+
+    print(f'Attempt to create new branch {branch_name}')
+    result = _run_subprocess(
+        args_list=['git', 'checkout', '-b', branch_name],
+        capture_output=True,
+        cwd=path,
+    )
+    if not result:  # checkout the existing branch
+        print(f'Attempting to checkout existing branch {branch_name}')
+        result = _run_subprocess(
             args_list=['git', 'checkout', branch_name],
             capture_output=True,
             cwd=path,
         )
+
+    if result:
+        ERROR = og_error
+    else:
+        raise SystemExit(1, f'::error:: Failed to create or checkout branch {branch_name}')
+
+    og_error = ERROR
 
     # add the upstream remote
     print('Adding upstream remote')
@@ -134,7 +143,7 @@ def prepare_homebrew_core_fork(
     # fetch the upstream remote
     print('Fetching upstream remote')
     _run_subprocess(
-        args_list=['git', 'fetch', 'upstream'],
+        args_list=['git', 'fetch', 'upstream', '--depth=1'],
         capture_output=True,
         cwd=path,
     )
@@ -211,8 +220,9 @@ def process_input_formula(formula_file: str) -> str:
     tap_dirs = [
         os.path.join(org_homebrew_repo, 'Formula', first_letter),  # we will commit back to this
         os.path.join(homebrew_core_fork_repo, 'Formula', first_letter),  # we will commit back to this
-        os.path.join(get_brew_repository(), 'Library', 'Taps', temp_repo, 'Formula', first_letter)  # tap directory
     ]
+    if is_brew_installed():
+        tap_dirs.append(os.path.join(get_brew_repository(), 'Library', 'Taps', temp_repo, 'Formula', first_letter))
     for d in tap_dirs:
         print(f'Copying {formula_filename} to {d}')
         os.makedirs(d, exist_ok=True)
@@ -311,6 +321,6 @@ def main():
     print(f'Formula {formula} audit, install, and test successful')
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     args = _parse_args(args_list=sys.argv[1:])
     main()
