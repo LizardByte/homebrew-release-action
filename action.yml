@@ -28,9 +28,13 @@ inputs:
     description: 'The target repository branch to publish to.'
     default: ''
     required: false
+  publish:
+    description: 'Whether to publish the release.'
+    default: 'false'
+    required: false
   token:
-    description: 'Github Token.'
-    required: true
+    description: 'Github Token. This is required when `publish` is enabled.'
+    required: false
   upstream_homebrew_core_repo:
     description: 'The upstream homebrew-core repository that the fork is based on. Must be a GitHub repo.'
     default: 'Homebrew/homebrew-core'
@@ -128,6 +132,7 @@ runs:
         echo "::endgroup::"
 
     - name: GitHub Commit & Push
+      if: ${{ inputs.publish == 'true' }}
       uses: actions-js/push@v1.4
       with:
         author_email: ${{ inputs.git_email }}
@@ -139,7 +144,7 @@ runs:
         repository: ${{ inputs.org_homebrew_repo }}
 
     - name: GitHub Commit & Push homebrew-core
-      if: ${{ inputs.contribute_to_homebrew_core == 'true' }}
+      if: ${{ inputs.contribute_to_homebrew_core == 'true' && inputs.publish == 'true' }}
       uses: actions-js/push@v1.4
       with:
         author_email: ${{ inputs.git_email }}
@@ -154,7 +159,7 @@ runs:
     - name: Create Pull Request
       env:
         GH_TOKEN: ${{ inputs.token }}
-      if: ${{ inputs.contribute_to_homebrew_core == 'true' }}
+      if: ${{ inputs.contribute_to_homebrew_core == 'true' && inputs.publish == 'true' }}
       shell: bash
       working-directory: ${{ github.action_path }}/homebrew_core_fork_repo
       run: |

@@ -15,7 +15,12 @@ concurrency:
 
 jobs:
   action:
-    environment:
+    env:
+      environment:  # this is accessible through ${{ env.environment }}
+        ${{ github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name != github.repository &&
+        'external' || 'internal' }}
+    environment:  # this isn't accessible
       ${{ github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name != github.repository &&
       'external' || 'internal' }}
@@ -47,6 +52,7 @@ jobs:
           git_username: ${{ secrets.GH_BOT_NAME }}
           org_homebrew_repo: ${{ github.repository }}
           org_homebrew_repo_branch: tests
+          publish: ${{ env.environment == 'internal' && 'true' || 'false' }}  # true if internal, false if external
           token: ${{ secrets.GH_BOT_TOKEN }}
           upstream_homebrew_core_repo: LizardByte/homebrew-core  # we don't want to create a PR against upstream
 
