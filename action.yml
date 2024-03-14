@@ -21,8 +21,11 @@ inputs:
     default: 'LizardByte/homebrew-core'
     required: false
   org_homebrew_repo:
-    description: 'The target repository to publish to.'
-    default: 'LizardByte/homebrew'
+    description: |
+      The target repository to publish to.
+      The repo name should conform to the documentation.
+      See: https://docs.brew.sh/Taps#repository-naming-conventions-and-assumptions
+    default: 'LizardByte/homebrew-homebrew'
     required: false
   org_homebrew_repo_branch:
     description: 'The target repository branch to publish to.'
