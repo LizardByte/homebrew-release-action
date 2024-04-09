@@ -102,6 +102,16 @@ def homebrew_core_fork_repo():
 
 @pytest.fixture(scope='function')
 def brew_untap():
+    # uninstall hello_world formula
+    proc = subprocess.run(
+        args=['brew', 'uninstall', 'hello_world'],
+        capture_output=True,
+    )
+    if proc.returncode != 0:
+        print(proc.stderr.decode('utf-8'))
+        raise Exception('Failed to uninstall hello_world formula')
+
+    # untap the temporary repo
     proc = subprocess.run(
         args=['brew', 'untap', main.temp_repo],
         capture_output=True,
