@@ -31,7 +31,7 @@ jobs:
 
       - name: Setup Release
         id: setup_release
-        uses: LizardByte/setup-release-action@v2024.202.205234
+        uses: LizardByte/setup-release-action@v2024.419.10846
         with:
           fail_on_events_api_error:  # PRs will fail if this is true
             ${{ github.event_name == 'pull_request' && 'false' || 'true' }}
