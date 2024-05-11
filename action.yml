@@ -136,7 +136,7 @@ runs:
 
     - name: GitHub Commit & Push
       if: ${{ inputs.publish == 'true' }}
-      uses: actions-js/push@v1.4
+      uses: actions-js/push@v1.5
       with:
         author_email: ${{ inputs.git_email }}
         author_name: ${{ inputs.git_username }}
@@ -148,7 +148,7 @@ runs:
 
     - name: GitHub Commit & Push homebrew-core
       if: ${{ inputs.contribute_to_homebrew_core == 'true' && inputs.publish == 'true' }}
-      uses: actions-js/push@v1.4
+      uses: actions-js/push@v1.5
       with:
         author_email: ${{ inputs.git_email }}
         author_name: ${{ inputs.git_username }}
