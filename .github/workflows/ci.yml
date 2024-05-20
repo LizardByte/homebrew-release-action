@@ -31,7 +31,7 @@ jobs:
 
       - name: Setup Release
         id: setup_release
-        uses: LizardByte/setup-release-action@v2024.516.190324
+        uses: LizardByte/setup-release-action@v2024.520.193857
         with:
           fail_on_events_api_error:  # PRs will fail if this is true
             ${{ github.event_name == 'pull_request' && 'false' || 'true' }}
@@ -58,15 +58,14 @@ jobs:
 
       - name: Create/Update GitHub Release
         if: ${{ steps.setup_release.outputs.publish_release == 'true' }}
-        uses: LizardByte/create-release-action@v2024.516.190229
+        uses: LizardByte/create-release-action@v2024.520.193838
         with:
           allowUpdates: true
           artifacts: ''
-          body: ''
           discussionCategory: announcements
           generateReleaseNotes: true
           name: ${{ steps.setup_release.outputs.release_tag }}
-          prerelease: ${{ steps.setup_release.outputs.publish_pre_release }}
+          prerelease: true
           tag: ${{ steps.setup_release.outputs.release_tag }}
           token: ${{ secrets.GH_BOT_TOKEN }}
 
