@@ -24,18 +24,16 @@ jobs:
       ${{ github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name != github.repository &&
       'external' || 'internal' }}
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Release
-        id: setup_release
-        uses: LizardByte/setup-release-action@v2024.520.193857
-        with:
-          fail_on_events_api_error:  # PRs will fail if this is true
-            ${{ github.event_name == 'pull_request' && 'false' || 'true' }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}  # can use GITHUB_TOKEN for read-only access
 
       - name: Modify Homebrew Formula
         # ensure the file is unique
@@ -51,36 +49,29 @@ jobs:
           git_email: ${{ secrets.GH_BOT_EMAIL }}
           git_username: ${{ secrets.GH_BOT_NAME }}
           org_homebrew_repo: ${{ github.repository }}
-          org_homebrew_repo_branch: tests
+          org_homebrew_repo_branch: tests-${{ runner.os }}
           publish: ${{ env.environment == 'internal' && 'true' || 'false' }}  # true if internal, false if external
           token: ${{ secrets.GH_BOT_TOKEN }}
           upstream_homebrew_core_repo: LizardByte/homebrew-core  # we don't want to create a PR against upstream
 
-      - name: Create/Update GitHub Release
-        if: ${{ steps.setup_release.outputs.publish_release == 'true' }}
-        uses: LizardByte/create-release-action@v2024.520.193838
-        with:
-          allowUpdates: true
-          artifacts: ''
-          discussionCategory: announcements
-          generateReleaseNotes: true
-          name: ${{ steps.setup_release.outputs.release_tag }}
-          prerelease: true
-          tag: ${{ steps.setup_release.outputs.release_tag }}
-          token: ${{ secrets.GH_BOT_TOKEN }}
-
   pytest:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # we need to fetch the default branch one of the tests
+          fetch-depth: 0  # we need to fetch the default branch for one of the tests
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
       - name: Install Dependencies
         shell: bash
@@ -119,4 +110,35 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: true
+          flags: ${{ runner.os }}
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs:
+      - action
+      - pytest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Release
+        id: setup-release
+        uses: LizardByte/setup-release-action@v2024.520.193857
+        with:
+          fail_on_events_api_error: true
+          github_token: ${{ secrets.GH_BOT_TOKEN }}
+
+      - name: Create Release
+        id: action
+        uses: LizardByte/create-release-action@v2024.520.193838
+        with:
+          allowUpdates: false
+          artifacts: ''
+          discussionCategory: announcements
+          generateReleaseNotes: true
+          name: ${{ steps.setup-release.outputs.release_tag }}
+          prerelease: true
+          tag: ${{ steps.setup-release.outputs.release_tag }}
+          token: ${{ secrets.GH_BOT_TOKEN }}
