@@ -49,6 +49,7 @@ steps:
       publish: true  # you probably want to use some conditional logic here
       token: ${{ secrets.PAT }}  # required to publish
       upstream_homebrew_core_repo: Homebrew/homebrew-core
+      validate: false  # skip the audit and install steps
 ```
 
 > **Warning**:
