@@ -42,6 +42,10 @@ inputs:
     description: 'The upstream homebrew-core repository that the fork is based on. Must be a GitHub repo.'
     default: 'Homebrew/homebrew-core'
     required: false
+  validate:
+    description: 'Whether to validate the formula.'
+    default: 'true'
+    required: false
 
 runs:
   using: "composite"
@@ -119,6 +123,7 @@ runs:
         INPUT_CONTRIBUTE_TO_HOMEBREW_CORE: ${{ inputs.contribute_to_homebrew_core }}
         INPUT_UPSTREAM_HOMEBREW_CORE_REPO: ${{ inputs.upstream_homebrew_core_repo }}
       id: homebrew-tests
+      if: ${{ inputs.validate == 'true' }}
       shell: bash
       working-directory: ${{ github.action_path }}
       run: |
