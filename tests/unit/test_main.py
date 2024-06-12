@@ -38,7 +38,6 @@ def test_parse_args():
 def test_run_subprocess(capsys):
     result = main._run_subprocess(
         args_list=[sys.executable, '-c', 'print("foo")'],
-        capture_output=True
     )
 
     assert result, "Process returned non zero exit code"
@@ -51,7 +50,6 @@ def test_run_subprocess(capsys):
 def test_run_subprocess_fail(capsys):
     result = main._run_subprocess(
         args_list=[sys.executable, '-c', 'raise SystemExit(1)'],
-        capture_output=True
     )
 
     assert not result, "Process returned zero exit code"

@@ -1,6 +1,7 @@
 # standard imports
 import argparse
 import os
+import select
 import shutil
 import subprocess
 import sys
@@ -37,30 +38,48 @@ def _parse_args(args_list: list) -> argparse.Namespace:
 
 def _run_subprocess(
         args_list: list,
-        capture_output: bool = False,
         cwd: Optional[str] = None,
         env: Optional[Mapping] = None,
 ) -> bool:
     global ERROR
     if cwd:
         os.chdir(cwd)  # hack for unit testing on windows
-    result = subprocess.run(
+    process = subprocess.Popen(
         args=args_list,
-        capture_output=capture_output,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         cwd=cwd,
         env=env,
     )
+
     if cwd:
         os.chdir(og_dir)
-    print('Captured stdout:\n\n')
-    print(result.stdout.decode('utf-8') if result.stdout else '')
 
-    try:
-        result.check_returncode()
-    except subprocess.CalledProcessError:
+    # Print stdout and stderr in real-time
+    while True:
+        reads = [process.stdout.fileno(), process.stderr.fileno()]
+        ret = select.select(reads, [], [])
+
+        for fd in ret[0]:
+            if fd == process.stdout.fileno():
+                read = process.stdout.readline()
+                print(read.decode('utf-8'), end='')
+            if fd == process.stderr.fileno():
+                read = process.stderr.readline()
+                print(read.decode('utf-8'), end='')
+
+        if process.poll() is not None:
+            break
+
+    # close the file descriptors
+    process.stdout.close()
+    process.stderr.close()
+
+    exit_code = process.wait()
+
+    if exit_code != 0:
         ERROR = True
-        print('Captured stderr:\n\n')
-        print(result.stderr.decode('utf-8') if result.stderr else '')
+        print(f'::error:: Process [{args_list}] failed with exit code', exit_code)
         return False
     else:
         return True
@@ -108,14 +127,12 @@ def prepare_homebrew_core_fork(
     print(f'Attempt to create new branch {branch_name}')
     result = _run_subprocess(
         args_list=['git', 'checkout', '-b', branch_name],
-        capture_output=True,
         cwd=path,
     )
     if not result:  # checkout the existing branch
         print(f'Attempting to checkout existing branch {branch_name}')
         result = _run_subprocess(
             args_list=['git', 'checkout', branch_name],
-            capture_output=True,
             cwd=path,
         )
 
@@ -136,7 +153,6 @@ def prepare_homebrew_core_fork(
             'upstream',
             f'https://github.com/{os.environ["INPUT_UPSTREAM_HOMEBREW_CORE_REPO"]}'
         ],
-        capture_output=True,
         cwd=path,
     )
 
@@ -144,7 +160,6 @@ def prepare_homebrew_core_fork(
     print('Fetching upstream remote')
     _run_subprocess(
         args_list=['git', 'fetch', 'upstream', '--depth=1'],
-        capture_output=True,
         cwd=path,
     )
 
@@ -152,7 +167,6 @@ def prepare_homebrew_core_fork(
     print('Hard resetting to upstream/master')
     _run_subprocess(
         args_list=['git', 'reset', '--hard', 'upstream/master'],
-        capture_output=True,
         cwd=path,
     )
 
@@ -193,7 +207,6 @@ def process_input_formula(formula_file: str) -> str:
             'developer',
             'on'
         ],
-        capture_output=True
     )
 
     # run brew tap
@@ -205,7 +218,6 @@ def process_input_formula(formula_file: str) -> str:
             temp_repo,
             '--no-git'
         ],
-        capture_output=True
     )
 
     org_homebrew_repo = os.path.join(
@@ -259,7 +271,6 @@ def audit_formula(formula: str) -> bool:
             '--online',
             os.path.join(temp_repo, formula)
         ],
-        capture_output=True
     )
 
 
@@ -279,7 +290,6 @@ def install_formula(formula: str) -> bool:
             '--verbose',
             os.path.join(temp_repo, formula)
         ],
-        capture_output=True,
         env=env,
     )
 
@@ -293,7 +303,6 @@ def test_formula(formula: str) -> bool:
             os.path.join(temp_repo, formula),
             '--verbose'
         ],
-        capture_output=True
     )
 
 

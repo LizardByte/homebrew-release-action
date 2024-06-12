@@ -90,7 +90,6 @@ def homebrew_core_fork_repo():
             'remove',
             'upstream',
         ],
-        capture_output=True,
         cwd=repo_directory,
     )
 
