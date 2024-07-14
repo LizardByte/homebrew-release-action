@@ -19,4 +19,4 @@ class HelloWorld < Formula
     system "#{bin}/hello-world"
   end
 end
-# Created from LizardByte/homebrew-release-action@eb97a6e5508f2eb11c724eefb24fd9f9e4599344
+# Created from LizardByte/homebrew-release-action@5eb111d2d9851129efb2243bdf03c155ee79b82b
