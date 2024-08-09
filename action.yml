@@ -122,8 +122,8 @@ runs:
         INPUT_FORMULA_FILE: ${{ inputs.formula_file }}
         INPUT_CONTRIBUTE_TO_HOMEBREW_CORE: ${{ inputs.contribute_to_homebrew_core }}
         INPUT_UPSTREAM_HOMEBREW_CORE_REPO: ${{ inputs.upstream_homebrew_core_repo }}
+        INPUT_VALIDATE: ${{ inputs.validate }}
       id: homebrew-tests
-      if: ${{ inputs.validate == 'true' }}
       shell: bash
       working-directory: ${{ github.action_path }}
       run: |
