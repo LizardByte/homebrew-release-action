@@ -122,7 +122,7 @@ def test_test_formula():
     assert main.test_formula(formula='hello_world')
 
 
-def test_main(brew_untap, homebrew_core_fork_repo):
+def test_main(brew_untap, homebrew_core_fork_repo, input_validate):
     main.args = main._parse_args(args_list=[])
     main.main()
     assert not main.ERROR

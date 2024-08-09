@@ -124,3 +124,10 @@ def brew_untap():
     tap_directory = os.path.join(brew_repo, 'Library', 'Taps', main.temp_repo)
     if os.path.isdir(tap_directory):
         shutil.rmtree(tap_directory)
+
+
+@pytest.fixture(scope='function', params=['true', 'false'])
+def input_validate(request):
+    os.environ['INPUT_VALIDATE'] = request.param
+    yield
+    del os.environ['INPUT_VALIDATE']

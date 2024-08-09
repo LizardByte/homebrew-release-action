@@ -312,6 +312,10 @@ def main():
 
     formula = process_input_formula(args.formula_file)
 
+    if os.environ['INPUT_VALIDATE'].lower() != 'true':
+        print('Skipping audit, install, and test')
+        return
+
     if not audit_formula(formula):
         print(f'::error:: Formula {formula} failed audit')
         FAILURES.append('audit')
