@@ -68,12 +68,10 @@ jobs:
       include:
         # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-public-repositories
         # while GitHub has larger macOS runners, they are not available for our repos :(
-        - os: macos-12
-          publish: true
         - os: macos-13
         - os: macos-14
-        - os: ubuntu-20.04
-        - os: ubuntu-22.04
+        - os: ubuntu-latest
+          publish: true
   name: Homebrew (${{ matrix.os }})
   runs-on: ${{ matrix.os }}
   steps:
