@@ -274,6 +274,26 @@ def audit_formula(formula: str) -> bool:
     )
 
 
+def brew_upgrade() -> bool:
+    print('Updating Homebrew')
+    result = _run_subprocess(
+        args_list=[
+            'brew',
+            'update'
+        ]
+    )
+    if not result:
+        return False
+
+    print('Upgrading Homebrew')
+    return _run_subprocess(
+        args_list=[
+            'brew',
+            'upgrade'
+        ]
+    )
+
+
 def install_formula(formula: str) -> bool:
     print(f'Installing formula {formula}')
     env = dict(
@@ -315,6 +335,11 @@ def main():
     if os.environ['INPUT_VALIDATE'].lower() != 'true':
         print('Skipping audit, install, and test')
         return
+
+    upgrade_status = brew_upgrade()
+    if not upgrade_status:
+        print('::error:: Homebrew update or upgrade failed')
+        raise SystemExit(1)
 
     if not audit_formula(formula):
         print(f'::error:: Formula {formula} failed audit')
