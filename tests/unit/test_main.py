@@ -110,6 +110,10 @@ def test_is_brew_installed(operating_system):
     assert main.is_brew_installed()
 
 
+def test_brew_upgrade():
+    assert main.brew_upgrade()
+
+
 def test_audit_formula():
     assert main.audit_formula(formula='hello_world')
 
