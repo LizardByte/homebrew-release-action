@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 from typing import Optional
+from unittest.mock import patch
 
 # lib imports
 import pytest
@@ -135,3 +136,201 @@ def test_main(brew_untap, homebrew_core_fork_repo, input_validate):
     main.main()
     assert not main.ERROR
     assert not main.FAILURES
+
+
+@pytest.mark.parametrize('scenario, mocks, expected_failures', [
+    # Scenario 1: Homebrew not installed
+    (
+            'homebrew_not_installed',
+            [('is_brew_installed', False)],
+            [],
+    ),
+    # Scenario 2: Brew upgrade fails
+    (
+            'brew_upgrade_fails',
+            [
+                ('is_brew_installed', True),
+                ('process_input_formula', 'hello_world'),
+                ('brew_upgrade', False)
+            ],
+            [],
+    ),
+    # Scenario 3: Brew debug fails
+    (
+            'brew_debug_fails',
+            [
+                ('is_brew_installed', True),
+                ('process_input_formula', 'hello_world'),
+                ('brew_upgrade', True),
+                ('brew_debug', False)
+            ],
+            [],
+    ),
+    # Scenario 4: Audit fails
+    (
+            'audit_fails',
+            [
+                ('is_brew_installed', True),
+                ('process_input_formula', 'hello_world'),
+                ('brew_upgrade', True),
+                ('brew_debug', True),
+                ('audit_formula', False)
+            ],
+            ['audit'],
+    ),
+    # Scenario 5: Install fails
+    (
+            'install_fails',
+            [
+                ('is_brew_installed', True),
+                ('process_input_formula', 'hello_world'),
+                ('brew_upgrade', True),
+                ('brew_debug', True),
+                ('audit_formula', True),
+                ('install_formula', False)
+            ],
+            ['install'],
+    ),
+    # Scenario 6: Test fails
+    (
+            'test_fails',
+            [
+                ('is_brew_installed', True),
+                ('process_input_formula', 'hello_world'),
+                ('brew_upgrade', True),
+                ('brew_debug', True),
+                ('audit_formula', True),
+                ('install_formula', True),
+                ('test_formula', False)
+            ],
+            ['test'],
+    ),
+    # Scenario 7: Multiple failures
+    (
+            'multiple_failures',
+            [
+                ('is_brew_installed', True),
+                ('process_input_formula', 'hello_world'),
+                ('brew_upgrade', True),
+                ('brew_debug', True),
+                ('audit_formula', False),
+                ('install_formula', False),
+                ('test_formula', False)
+            ],
+            ['audit', 'install', 'test'],
+    ),
+])
+def test_main_error_cases(
+        monkeypatch,
+        scenario,
+        mocks,
+        expected_failures,
+):
+    # Set up environment for validation
+    monkeypatch.setenv('INPUT_VALIDATE', 'true')
+
+    # Reset global state
+    main.ERROR = False
+    main.FAILURES = []
+
+    # Set up mock args
+    main.args = main._parse_args([])
+
+    # Apply all the mocks
+    mock_dict = {name: (lambda val: lambda *args, **kwargs: val)(retval) for name, retval in mocks}
+
+    # set main.ERROR to true when there are expected failures
+    # not the best approach, but this causes the code to raise SystemExit
+    if expected_failures:
+        main.ERROR = True
+
+    # We need to catch SystemExit exceptions
+    with patch.multiple(main, **mock_dict):
+        # We need to catch SystemExit exceptions
+        with pytest.raises(SystemExit):
+            main.main()
+
+        # Check if FAILURES list are as expected
+        assert main.FAILURES == expected_failures
+
+
+def test_main_skip_validate(monkeypatch):
+    # Set up environment to skip validation
+    monkeypatch.setenv('INPUT_VALIDATE', 'false')
+
+    # Reset global state
+    main.ERROR = False
+    main.FAILURES = []
+
+    # Set up mock args
+    main.args = main._parse_args([])
+
+    # Mock only the necessary functions to pass through the first part
+    with patch.object(main, 'is_brew_installed', return_value=True), \
+            patch.object(main, 'process_input_formula', return_value='hello_world'):
+        # Should not raise SystemExit
+        main.main()
+
+        # No errors or failures should be recorded
+        assert not main.ERROR
+        assert not main.FAILURES
+
+
+@patch('action.main._run_subprocess')
+def test_prepare_homebrew_core_fork_failure(mock_run, homebrew_core_fork_repo):
+    # Mock _run_subprocess to return False for the first call (branch creation)
+    # and False for the second call (branch checkout)
+    mock_run.return_value = False
+
+    # Test that the function raises SystemExit when both branch operations fail
+    with pytest.raises(SystemExit):
+        main.prepare_homebrew_core_fork(
+            branch_suffix='homebrew-release-action-tests',
+            path=homebrew_core_fork_repo
+        )
+
+    # Verify the function attempted to run git commands
+    assert mock_run.called
+    assert mock_run.call_count >= 1
+
+
+@patch('os.path.exists')
+def test_process_input_formula_copy_failure(mock_exists, tmp_path):
+    # Create a test formula file
+    test_formula = tmp_path / "test_formula.rb"
+    test_formula.write_text("class TestFormula < Formula\nend")
+
+    # Make the initial file check pass, but the copy verification fail
+    # First call (checking if formula exists): True
+    # Second call (checking if it's a file): True
+    # All subsequent calls (checking if copies exist): False
+    mock_exists.side_effect = [True, True] + [False] * 10
+
+    # Test that the function raises FileNotFoundError when copy verification fails
+    with pytest.raises(FileNotFoundError, match="was not copied"):
+        main.process_input_formula(formula_file=str(test_formula))
+
+
+@patch('action.main._run_subprocess')
+def test_brew_upgrade_update_failure(mock_run):
+    # Set up the mock to fail on brew update but not continue to brew upgrade
+    def side_effect(args_list, *args, **kwargs):
+        if 'update' in args_list:
+            return False
+        return True  # Return True for any other commands
+
+    mock_run.side_effect = side_effect
+
+    # Call the function and check result
+    result = main.brew_upgrade()
+
+    # Assert that brew_upgrade returns False when update fails
+    assert not result
+
+    # Verify that brew update was called
+    update_call_made = any('update' in str(call) for call in mock_run.call_args_list)
+    assert update_call_made
+
+    # Verify that brew upgrade was NOT called (execution should stop after update fails)
+    upgrade_call_made = any('upgrade' in str(call) for call in mock_run.call_args_list)
+    assert not upgrade_call_made
