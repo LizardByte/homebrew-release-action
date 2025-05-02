@@ -40,6 +40,7 @@ def _run_subprocess(
         args_list: list,
         cwd: Optional[str] = None,
         env: Optional[Mapping] = None,
+        ignore_error: bool = False,
 ) -> bool:
     global ERROR
     if cwd:
@@ -77,12 +78,15 @@ def _run_subprocess(
 
     exit_code = process.wait()
 
-    if exit_code != 0:
-        ERROR = True
-        print(f'::error:: Process [{args_list}] failed with exit code', exit_code)
-        return False
-    else:
+    if exit_code == 0:
         return True
+
+    print(f'::error:: Process [{args_list}] failed with exit code', exit_code)
+    if not ignore_error:
+        ERROR = True
+        return False
+
+    return True
 
 
 def set_github_action_output(output_name: str, output_value: str):
@@ -294,6 +298,29 @@ def brew_upgrade() -> bool:
     )
 
 
+def brew_debug() -> bool:
+    # run brew config
+    print('Running `brew config`')
+    result = _run_subprocess(
+        args_list=[
+            'brew',
+            'config',
+        ],
+    )
+
+    # run brew doctor
+    print('Running `brew doctor`')
+    _run_subprocess(
+        args_list=[
+            'brew',
+            'doctor',
+        ],
+        ignore_error=True,
+    )
+
+    return result
+
+
 def install_formula(formula: str) -> bool:
     print(f'Installing formula {formula}')
     env = dict(
@@ -339,6 +366,10 @@ def main():
     upgrade_status = brew_upgrade()
     if not upgrade_status:
         print('::error:: Homebrew update or upgrade failed')
+        raise SystemExit(1)
+
+    if not brew_debug():
+        print('::error:: Homebrew debug failed')
         raise SystemExit(1)
 
     if not audit_formula(formula):
