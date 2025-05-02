@@ -114,6 +114,10 @@ def test_brew_upgrade():
     assert main.brew_upgrade()
 
 
+def test_brew_debug():
+    assert main.brew_debug()
+
+
 def test_audit_formula():
     assert main.audit_formula(formula='hello_world')
 
