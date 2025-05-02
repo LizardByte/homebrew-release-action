@@ -52,10 +52,10 @@ steps:
       validate: false  # skip the audit and install steps
 ```
 
-> **Warning**:
+> [!Warning]
 > This action is only compatible with Linux and macOS runners, and will intentionally fail on Windows runners.
 
-> **Note**:
+> [!Note]
 > If you have a formula that is sensitive to the runner's OS version, you may wish to use a matrix strategy to run the
 > action. In this case you probably only want to run the publish on one of them. Below is an example.
 
@@ -66,10 +66,8 @@ jobs:
     fail-fast: false  # false to test all, true to fail entire job if any fail
     matrix:
       include:
-        # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-public-repositories
-        # while GitHub has larger macOS runners, they are not available for our repos :(
-        - os: macos-13
         - os: macos-14
+        - os: macos-15
         - os: ubuntu-latest
           publish: true
   name: Homebrew (${{ matrix.os }})
