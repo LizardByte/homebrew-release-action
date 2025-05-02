@@ -274,3 +274,63 @@ def test_main_skip_validate(monkeypatch):
         # No errors or failures should be recorded
         assert not main.ERROR
         assert not main.FAILURES
+
+
+@patch('action.main._run_subprocess')
+def test_prepare_homebrew_core_fork_failure(mock_run, homebrew_core_fork_repo):
+    # Mock _run_subprocess to return False for the first call (branch creation)
+    # and False for the second call (branch checkout)
+    mock_run.return_value = False
+
+    # Test that the function raises SystemExit when both branch operations fail
+    with pytest.raises(SystemExit):
+        main.prepare_homebrew_core_fork(
+            branch_suffix='homebrew-release-action-tests',
+            path=homebrew_core_fork_repo
+        )
+
+    # Verify the function attempted to run git commands
+    assert mock_run.called
+    assert mock_run.call_count >= 1
+
+
+@patch('os.path.exists')
+def test_process_input_formula_copy_failure(mock_exists, tmp_path):
+    # Create a test formula file
+    test_formula = tmp_path / "test_formula.rb"
+    test_formula.write_text("class TestFormula < Formula\nend")
+
+    # Make the initial file check pass, but the copy verification fail
+    # First call (checking if formula exists): True
+    # Second call (checking if it's a file): True
+    # All subsequent calls (checking if copies exist): False
+    mock_exists.side_effect = [True, True] + [False] * 10
+
+    # Test that the function raises FileNotFoundError when copy verification fails
+    with pytest.raises(FileNotFoundError, match="was not copied"):
+        main.process_input_formula(formula_file=str(test_formula))
+
+
+@patch('action.main._run_subprocess')
+def test_brew_upgrade_update_failure(mock_run):
+    # Set up the mock to fail on brew update but not continue to brew upgrade
+    def side_effect(args_list, *args, **kwargs):
+        if 'update' in args_list:
+            return False
+        return True  # Return True for any other commands
+
+    mock_run.side_effect = side_effect
+
+    # Call the function and check result
+    result = main.brew_upgrade()
+
+    # Assert that brew_upgrade returns False when update fails
+    assert not result
+
+    # Verify that brew update was called
+    update_call_made = any('update' in str(call) for call in mock_run.call_args_list)
+    assert update_call_made
+
+    # Verify that brew upgrade was NOT called (execution should stop after update fails)
+    upgrade_call_made = any('upgrade' in str(call) for call in mock_run.call_args_list)
+    assert not upgrade_call_made
