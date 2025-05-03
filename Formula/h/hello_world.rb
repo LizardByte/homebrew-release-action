@@ -23,4 +23,4 @@ class HelloWorld < Formula
     puts "testpath: #{testpath}"
   end
 end
-# Created from LizardByte/homebrew-release-action@c07722050650bd4eec5f7d97270bd5e38edc828a
+# Created from LizardByte/homebrew-release-action@230fa0630b4d8eb92ca4eac1a45c6572cf381704
