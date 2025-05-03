@@ -24,6 +24,7 @@ to point to a different repository if you are not using the official Homebrew/ho
 ```yaml
 steps:
   - name: Validate and Publish Homebrew Formula
+    id: homebrew
     uses: LizardByte/homebrew-release-action@master
     with:
       formula_file: "${{ github.workspace }}/hello_world.rb"
@@ -92,3 +93,10 @@ jobs:
         publish: ${{ matrix.publish }}
         token: ${{ secrets.PAT }}
 ```
+
+### Outputs
+
+| Name      | Description                                       |
+|-----------|---------------------------------------------------|
+| buildpath | The path to Homebrew's temporary build directory. |
+| testpath  | The path to Homebrew's temporary test directory.  |

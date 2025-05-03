@@ -1,6 +1,7 @@
 # standard imports
 import argparse
 import os
+
 import select
 import shutil
 import subprocess
@@ -19,6 +20,7 @@ args = None
 # result placeholder
 ERROR = False
 FAILURES = []
+TEMP_DIRECTORIES = []
 
 temp_repo = os.path.join('homebrew-release-action', 'homebrew-test')
 
@@ -321,6 +323,39 @@ def brew_debug() -> bool:
     return result
 
 
+def find_tmp_dir(formula: str) -> str:
+    print('Trying to find temp directory')
+    tmp_dir = ""
+
+    root_tmp_dirs = [
+        os.getenv('HOMEBREW_TEMP', ""),  # if manually set
+        '/private/tmp',  # macOS default
+        '/var/tmp',  # Linux default
+    ]
+
+    # first tmp dir that exists
+    root_tmp_dir = next((d for d in root_tmp_dirs if os.path.isdir(d)), None)
+
+    if not root_tmp_dir:
+        raise FileNotFoundError('::error:: Could not find root temp directory')
+
+    print(f'Using temp directory {root_tmp_dir}')
+
+    # find formula temp directories not already in the list
+    for d in os.listdir(root_tmp_dir):
+        print(f'Checking temp directory {d}')
+        if d.startswith(f'{formula}-') and d not in TEMP_DIRECTORIES:
+            tmp_dir = os.path.join(root_tmp_dir, d)
+            print(f'Found temp directory {tmp_dir}')
+            TEMP_DIRECTORIES.append(d)
+            break
+
+    if not tmp_dir:
+        raise FileNotFoundError(f'::error:: Could not find temp directory {tmp_dir}')
+
+    return tmp_dir
+
+
 def install_formula(formula: str) -> bool:
     print(f'Installing formula {formula}')
     env = dict(
@@ -330,27 +365,43 @@ def install_formula(formula: str) -> bool:
     # combine with os environment
     env.update(os.environ)
 
-    return _run_subprocess(
+    result = _run_subprocess(
         args_list=[
             'brew',
             'install',
+            '--keep-tmp',
             '--verbose',
-            os.path.join(temp_repo, formula)
+            os.path.join(temp_repo, formula),
         ],
         env=env,
     )
 
+    set_github_action_output(
+        output_name='buildpath',
+        output_value=find_tmp_dir(formula)
+    )
+
+    return result
+
 
 def test_formula(formula: str) -> bool:
     print(f'Testing formula {formula}')
-    return _run_subprocess(
+    result = _run_subprocess(
         args_list=[
             'brew',
             'test',
+            '--keep-tmp',
+            '--verbose',
             os.path.join(temp_repo, formula),
-            '--verbose'
         ],
     )
+
+    set_github_action_output(
+        output_name='testpath',
+        output_value=find_tmp_dir(formula)
+    )
+
+    return result
 
 
 def main():

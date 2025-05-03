@@ -46,6 +46,13 @@ inputs:
     description: 'Whether to validate the formula.'
     default: 'true'
     required: false
+outputs:
+  buildpath:
+    description: "The path to Homebrew's temporary build directory."
+    value: ${{ steps.homebrew-tests.outputs.buildpath }}
+  testpath:
+    description: "The path to Homebrew's temporary test directory."
+    value: ${{ steps.homebrew-tests.outputs.testpath }}
 
 runs:
   using: "composite"

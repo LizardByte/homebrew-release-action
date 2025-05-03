@@ -119,6 +119,102 @@ def test_brew_debug():
     assert main.brew_debug()
 
 
+@pytest.mark.parametrize('setup_scenario', [
+    # Scenario 1: Formula temp dir exists in first location (HOMEBREW_TEMP)
+    {'env': {'HOMEBREW_TEMP': '/tmp/custom'}, 'dirs': ['/tmp/custom'], 'files': ['formula-123']},
+    # Scenario 2: Formula temp dir exists in macOS default location
+    {'env': {}, 'dirs': ['/private/tmp'], 'files': ['formula-456']},
+    # Scenario 3: Formula temp dir exists in Linux default location
+    {'env': {}, 'dirs': ['/var/tmp'], 'files': ['formula-789']},
+])
+@patch('os.path.isdir')
+@patch('os.listdir')
+@patch('os.environ')
+def test_find_tmp_dir(mock_environ, mock_listdir, mock_isdir, setup_scenario):
+    # Setup environment variables
+    mock_environ.get.side_effect = lambda key, default: setup_scenario['env'].get(key, default)
+
+    # Configure which directories exist
+    mock_isdir.side_effect = lambda path: any(d in path for d in setup_scenario['dirs'])
+
+    # Configure directory listings
+    mock_listdir.return_value = setup_scenario['files']
+
+    # Reset global tracking of temp directories
+    main.TEMP_DIRECTORIES = []
+
+    # Run the function and check results
+    result = main.find_tmp_dir('formula')
+
+    # Verify the result contains the formula temp directory path
+    assert any(f in result for f in setup_scenario['files'])
+
+    # Verify the temp directory was added to tracking
+    assert len(main.TEMP_DIRECTORIES) == 1
+
+
+@patch('os.path.isdir')
+def test_find_tmp_dir_no_root_tmp(mock_isdir):
+    # Make all temp directories non-existent
+    mock_isdir.return_value = False
+
+    # Run the function and expect error
+    with pytest.raises(FileNotFoundError, match="Could not find root temp directory"):
+        main.find_tmp_dir('formula')
+
+
+@patch('os.path.isdir')
+@patch('os.listdir')
+def test_find_tmp_dir_no_formula_tmp(mock_listdir, mock_isdir):
+    # Make root temp directories exist
+    mock_isdir.side_effect = lambda path: any(tmp_dir in path for tmp_dir in ['/private/tmp', '/var/tmp'])
+
+    # But no formula temp directories
+    mock_listdir.return_value = ['other-dir', 'not-matching']
+
+    # Reset global tracking of temp directories
+    main.TEMP_DIRECTORIES = []
+
+    # Run the function and expect error
+    with pytest.raises(FileNotFoundError, match="Could not find temp directory"):
+        main.find_tmp_dir('formula')
+
+
+@pytest.mark.parametrize('existing_dirs', [
+    ['formula-123'],
+    ['formula-123', 'formula-456'],
+    ['formula-123', 'formula-456', 'formula-789'],
+])
+@patch('os.path.isdir')
+@patch('os.listdir')
+def test_find_tmp_dir_tracking(mock_listdir, mock_isdir, existing_dirs):
+    # Configure mock_isdir to return True for root temp directories
+    # but also retain the ability to check other paths
+    def mock_isdir_side_effect(path):
+        # Return True for any of the root temp directories
+        if any(tmp_dir in path for tmp_dir in ['/private/tmp', '/var/tmp']):
+            return True
+        return False
+
+    mock_isdir.side_effect = mock_isdir_side_effect
+
+    # Set up multiple formula directories
+    mock_listdir.return_value = existing_dirs
+
+    # Reset global tracking of temp directories
+    main.TEMP_DIRECTORIES = []
+
+    # Each call should find the next directory (not already in TEMP_DIRECTORIES)
+    for i, expected_dir in enumerate(existing_dirs):
+        result = main.find_tmp_dir('formula')
+        assert expected_dir in result
+        assert len(main.TEMP_DIRECTORIES) == i + 1
+
+    # If called again with no new directories, it should raise an error
+    with pytest.raises(FileNotFoundError, match="Could not find temp directory"):
+        main.find_tmp_dir('formula')
+
+
 def test_audit_formula():
     assert main.audit_formula(formula='hello_world')
 
