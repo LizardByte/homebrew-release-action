@@ -120,6 +120,7 @@ jobs:
         with:
           fail_ci_if_error: true
           files: junit.xml
+          flags: ${{ runner.os }}
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
 
