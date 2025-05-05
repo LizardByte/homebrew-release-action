@@ -369,6 +369,7 @@ def install_formula(formula: str) -> bool:
         args_list=[
             'brew',
             'install',
+            '--include-test',
             '--keep-tmp',
             '--verbose',
             os.path.join(temp_repo, formula),
