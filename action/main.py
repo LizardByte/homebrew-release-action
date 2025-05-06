@@ -21,6 +21,7 @@ args = None
 ERROR = False
 FAILURES = []
 TEMP_DIRECTORIES = []
+HOMEBREW_BUILDPATH = ""
 
 temp_repo = os.path.join('homebrew-release-action', 'homebrew-test')
 
@@ -325,8 +326,6 @@ def brew_debug() -> bool:
 
 def find_tmp_dir(formula: str) -> str:
     print('Trying to find temp directory')
-    tmp_dir = ""
-
     root_tmp_dirs = [
         os.getenv('HOMEBREW_TEMP', ""),  # if manually set
         '/private/tmp',  # macOS default
@@ -344,11 +343,13 @@ def find_tmp_dir(formula: str) -> str:
     # find formula temp directories not already in the list
     for d in os.listdir(root_tmp_dir):
         print(f'Checking temp directory {d}')
-        if d.startswith(f'{formula}-') and d not in TEMP_DIRECTORIES:
-            tmp_dir = os.path.join(root_tmp_dir, d)
+        tmp_dir = os.path.join(root_tmp_dir, d)
+        if d.startswith(f'{formula}-') and tmp_dir not in TEMP_DIRECTORIES:
             print(f'Found temp directory {tmp_dir}')
-            TEMP_DIRECTORIES.append(d)
+            TEMP_DIRECTORIES.append(tmp_dir)
             break
+    else:
+        tmp_dir = ""
 
     if not tmp_dir:
         raise FileNotFoundError(f'::error:: Could not find temp directory {tmp_dir}')
@@ -377,9 +378,12 @@ def install_formula(formula: str) -> bool:
         env=env,
     )
 
+    global HOMEBREW_BUILDPATH
+    HOMEBREW_BUILDPATH = find_tmp_dir(formula)
+
     set_github_action_output(
         output_name='buildpath',
-        output_value=find_tmp_dir(formula)
+        output_value=HOMEBREW_BUILDPATH
     )
 
     return result
@@ -387,6 +391,13 @@ def install_formula(formula: str) -> bool:
 
 def test_formula(formula: str) -> bool:
     print(f'Testing formula {formula}')
+    env = dict(
+        HOMEBREW_BUILDPATH=HOMEBREW_BUILDPATH,
+    )
+
+    # combine with os environment
+    env.update(os.environ)
+
     result = _run_subprocess(
         args_list=[
             'brew',
@@ -395,6 +406,7 @@ def test_formula(formula: str) -> bool:
             '--verbose',
             os.path.join(temp_repo, formula),
         ],
+        env=env,
     )
 
     set_github_action_output(
