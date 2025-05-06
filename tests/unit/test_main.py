@@ -1,7 +1,9 @@
 # standard imports
 import os
 import subprocess
+import stat
 import sys
+import tempfile
 from typing import Optional
 from unittest.mock import patch
 
@@ -117,6 +119,39 @@ def test_brew_upgrade():
 
 def test_brew_debug():
     assert main.brew_debug()
+
+
+def test_change_permissions_recursive():
+    # Create a temporary directory structure for testing
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create test directory structure
+        sub_dir = os.path.join(temp_dir, "subdir")
+        sub_sub_dir = os.path.join(sub_dir, "subsubdir")
+        os.makedirs(sub_sub_dir)
+
+        # Create some files
+        file1 = os.path.join(temp_dir, "file1.txt")
+        file2 = os.path.join(sub_dir, "file2.txt")
+        file3 = os.path.join(sub_sub_dir, "file3.txt")
+
+        for file_path in [file1, file2, file3]:
+            with open(file_path, 'w') as f:
+                f.write("test content")
+
+        # Test with different permission modes
+        test_mode = 0o755  # rwxr-xr-x
+
+        # Apply permissions
+        main.change_permissions_recursive(temp_dir, test_mode)
+
+        # Check that permissions were applied correctly
+        # Check directories
+        for dir_path in [temp_dir, sub_dir, sub_sub_dir]:
+            assert stat.S_IMODE(os.stat(dir_path).st_mode) == test_mode
+
+        # Check files
+        for file_path in [file1, file2, file3]:
+            assert stat.S_IMODE(os.stat(file_path).st_mode) == test_mode
 
 
 @pytest.mark.parametrize('setup_scenario', [

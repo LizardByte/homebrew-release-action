@@ -324,6 +324,15 @@ def brew_debug() -> bool:
     return result
 
 
+def change_permissions_recursive(path, mode):
+    print(f'Changing permissions recursively of {path} to {mode}')
+    for root, dirs, files in os.walk(path, topdown=False):
+        for d in dirs:
+            os.chmod(os.path.join(root, d), mode)
+        for f in files:
+            os.chmod(os.path.join(root, f), mode)
+
+
 def find_tmp_dir(formula: str) -> str:
     print('Trying to find temp directory')
     root_tmp_dirs = [
@@ -380,6 +389,9 @@ def install_formula(formula: str) -> bool:
 
     global HOMEBREW_BUILDPATH
     HOMEBREW_BUILDPATH = find_tmp_dir(formula)
+
+    # set permissions on the buildpath so everyone can read/write
+    change_permissions_recursive(path=HOMEBREW_BUILDPATH, mode=0o777)
 
     set_github_action_output(
         output_name='buildpath',
