@@ -24,13 +24,14 @@ class HelloWorld < Formula
 
     # test the env
     if ENV["HOMEBREW_BUILDPATH"]
+      dummy_filename = "dummy.txt"
       cd File.join(ENV["HOMEBREW_BUILDPATH"]) do
         # create a dummy file
-        File.write("dummy.txt", "Hello, World!")
-        assert_path_exists "dummy.txt"
+        File.write(dummy_filename, "Hello, World!")
+        assert_path_exists dummy_filename
       end
-      assert_path_exists File.join(ENV["HOMEBREW_BUILDPATH"], "dummy.txt")
+      assert_path_exists File.join(ENV["HOMEBREW_BUILDPATH"], dummy_filename)
     end
   end
 end
-# Created from LizardByte/homebrew-release-action@1d5e244413bc3eb3182f607c9e9b085d1a01f65a
+# Created from LizardByte/homebrew-release-action@a8e065021f0f07b5ea55f192cac05507dabe3391
