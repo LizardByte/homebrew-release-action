@@ -34,4 +34,4 @@ class HelloWorld < Formula
     end
   end
 end
-# Created from LizardByte/homebrew-release-action@e14085e622f832056e1b9d056c5d336a9908db59
+# Created from LizardByte/homebrew-release-action@c0a96a813e6aafd9977697425cebc2c43102ad74
