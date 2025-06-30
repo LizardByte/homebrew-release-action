@@ -1,4 +1,9 @@
 # homebrew-release-action
+
+> [!WARNING]
+> This action is deprecated and will not be maintained anymore.
+> Please use our [LizardByte/actions](https://github.com/LizardByte/actions) monorepo instead.
+
 [![GitHub Workflow Status (CI)](https://img.shields.io/github/actions/workflow/status/lizardbyte/homebrew-release-action/ci.yml.svg?branch=master&label=CI%20build&logo=github&style=for-the-badge)](https://github.com/LizardByte/homebrew-release-action/actions/workflows/ci.yml?query=branch%3Amaster)
 [![Codecov](https://img.shields.io/codecov/c/gh/LizardByte/homebrew-release-action.svg?token=d0EjUVzuPN&style=for-the-badge&logo=codecov&label=codecov)](https://app.codecov.io/gh/LizardByte/homebrew-release-action)
 
